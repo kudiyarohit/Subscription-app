@@ -4,11 +4,14 @@ import jwt
 import datetime
 from dotenv import load_dotenv
 import os
-from global_state import users, save_users
 
 load_dotenv()
+
 auth_routes = Blueprint('auth', __name__)
-SECRET_KEY = os.getenv("SECRET_KEY", "default-secret-key")  # fallback for local dev
+SECRET_KEY = os.getenv("SECRET_KEY")
+
+# Simulated in-memory user DB (replace with actual DB)
+from global_state import users
 
 @auth_routes.route('/signup', methods=['POST'])
 def signup():
@@ -16,19 +19,15 @@ def signup():
     email = data.get('email')
     password = data.get('password')
 
-    if not email or not password:
-        return jsonify({'msg': 'Email and password are required'}), 400
-
     if email in users:
-        return jsonify({'msg': 'User already exists'}), 400
+        return jsonify({'message': 'User already exists'}), 400
 
     users[email] = {
         'password': generate_password_hash(password),
         'is_verified': False,
         'is_subscribed': False
     }
-    save_users()
-    return jsonify({'msg': 'Signup successful'}), 201
+    return jsonify({'message': 'Signup successful'}), 201
 
 @auth_routes.route('/login', methods=['POST'])
 def login():
@@ -38,14 +37,15 @@ def login():
 
     user = users.get(email)
     if not user or not check_password_hash(user['password'], password):
-        return jsonify({'msg': 'Invalid credentials'}), 401
+        return jsonify({'message': 'Invalid credentials'}), 401
 
     token = jwt.encode(
         {'email': email, 'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)},
         SECRET_KEY, algorithm="HS256"
     )
     return jsonify({
+        'msg': 'Login successful',
         'token': token,
         'is_verified': user['is_verified'],
         'is_subscribed': user['is_subscribed']
-    })
+    }), 200 if user['is_verified'] else 202
