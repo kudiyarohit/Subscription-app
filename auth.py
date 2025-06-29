@@ -44,7 +44,7 @@ def login():
         SECRET_KEY, algorithm="HS256"
     )
     return jsonify({
-        'msg': 'Login successful',
+        'message': 'Login successful',
         'token': token,
         'is_verified': user['is_verified'],
         'is_subscribed': user['is_subscribed']
