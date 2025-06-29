@@ -5,7 +5,7 @@ import datetime, os
 student_routes = Blueprint('student_routes', __name__)
 
 # Simulated in-memory store (shared reference; ideally move to database)
-from admin import users, subjects  # shared memory reference
+from global_state import users, subjects  # shared memory reference
 
 # 🧠 Helper Functions
 def get_email_from_token(token):

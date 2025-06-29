@@ -4,12 +4,12 @@ import os
 admin_routes = Blueprint('admin', __name__)
 UPLOAD_FOLDER = "uploads"
 
-subjects = []
 
 if not os.path.exists('uploads'):
     os.makedirs('uploads')
 
-from auth import users
+from global_state import users, subjects
+
 @admin_routes.route('/')
 def admin_dashboard():
     pending = []

@@ -11,7 +11,7 @@ auth_routes = Blueprint('auth', __name__)
 SECRET_KEY = os.getenv("SECRET_KEY")
 
 # Simulated in-memory user DB (replace with actual DB)
-users = {}
+from global_state import users
 
 @auth_routes.route('/signup', methods=['POST'])
 def signup():

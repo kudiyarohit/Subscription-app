@@ -9,7 +9,7 @@ question_routes = Blueprint('questions', __name__)
 
 SECRET_KEY = os.getenv("SECRET_KEY")
 
-from auth import users
+from global_state import users
 
 subjects = [
     {"id": 1, "name": "Physics", "file": "https://example.com/physics.pdf"},
