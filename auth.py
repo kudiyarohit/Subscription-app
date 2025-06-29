@@ -4,20 +4,20 @@ import jwt
 import datetime
 from dotenv import load_dotenv
 import os
+from global_state import users, save_users
 
 load_dotenv()
-
 auth_routes = Blueprint('auth', __name__)
-SECRET_KEY = os.getenv("SECRET_KEY")
-
-# Simulated in-memory user DB (replace with actual DB)
-from global_state import users
+SECRET_KEY = os.getenv("SECRET_KEY", "default-secret-key")  # fallback for local dev
 
 @auth_routes.route('/signup', methods=['POST'])
 def signup():
     data = request.get_json()
     email = data.get('email')
     password = data.get('password')
+
+    if not email or not password:
+        return jsonify({'msg': 'Email and password are required'}), 400
 
     if email in users:
         return jsonify({'msg': 'User already exists'}), 400
@@ -27,6 +27,7 @@ def signup():
         'is_verified': False,
         'is_subscribed': False
     }
+    save_users()
     return jsonify({'msg': 'Signup successful'}), 201
 
 @auth_routes.route('/login', methods=['POST'])

@@ -4,12 +4,19 @@ import datetime, os
 
 student_routes = Blueprint('student_routes', __name__)
 
-# Simulated in-memory store (shared reference; ideally move to database)
-from global_state import users, subjects  # shared memory reference
+from global_state import users, subjects
 
 # 🧠 Helper Functions
 def get_email_from_token(token):
-    return token if token in users else None
+    try:
+        import jwt
+        from dotenv import load_dotenv
+        load_dotenv()
+        SECRET_KEY = os.getenv("SECRET_KEY")
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=["HS256"])
+        return decoded['email']
+    except:
+        return None
 
 def find_subject(sid):
     return next((s for s in subjects if str(s['id']) == str(sid)), None)
@@ -19,8 +26,8 @@ def find_subject(sid):
 def list_subjects():
     token = request.headers.get('Authorization')
     email = get_email_from_token(token)
-    if not email:
-        return 'Unauthorized', 401
+    if not email or email not in users or not users[email]['is_subscribed']:
+        return 'Unauthorized or not subscribed', 401
 
     now = datetime.datetime.utcnow()
     result = []
@@ -57,8 +64,11 @@ def upload_answer():
     if not subject:
         return 'Invalid subject', 400
 
+    ANSWERS_FOLDER = os.path.join('uploads', 'answers')
+    os.makedirs(ANSWERS_FOLDER, exist_ok=True)
+
     filename = secure_filename(f"{email}_{sid}.pdf")
-    filepath = os.path.join(current_app.config['ANSWERS_FOLDER'], filename)
+    filepath = os.path.join(ANSWERS_FOLDER, filename)
     pdf.save(filepath)
 
     subject.setdefault('answers', {})[email] = {

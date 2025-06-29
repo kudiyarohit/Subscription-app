@@ -23,7 +23,7 @@ def send_otp():
 
     # Send OTP using Gmail SMTP
     sender = os.getenv("EMAIL")
-    password = os.getenv("PASSWORD")  # Use App Password if using Gmail
+    password = os.getenv("PASSWORD")  # App password if using Gmail
     message = f"Subject: Your OTP\n\nYour OTP is {otp}. It is valid for 5 minutes."
 
     try:
@@ -36,7 +36,7 @@ def send_otp():
 
 @otp_routes.route('/verify', methods=['POST'])
 def verify_otp():
-    from auth import users
+    from global_state import users
     data = request.get_json()
     email = data.get('email')
     otp_input = data.get('otp')

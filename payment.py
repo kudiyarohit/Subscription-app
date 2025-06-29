@@ -5,8 +5,8 @@ payment_routes = Blueprint('payment', __name__)
 
 UPLOAD_FOLDER = "uploads"
 
-if not os.path.exists('uploads'):
-    os.makedirs('uploads')
+if not os.path.exists(UPLOAD_FOLDER):
+    os.makedirs(UPLOAD_FOLDER)
 
 @payment_routes.route('/upload', methods=['POST'])
 def upload_payment():
