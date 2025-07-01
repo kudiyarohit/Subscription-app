@@ -43,3 +43,13 @@ subjects = [
         "marks": {}
     }
 ]
+SUBJECTS_FILE = 'subjects.json'
+
+def save_subjects():
+    with open(SUBJECTS_FILE, 'w') as f:
+        json.dump(subjects, f)
+
+# Load from disk if available
+if os.path.exists(SUBJECTS_FILE):
+    with open(SUBJECTS_FILE, 'r') as f:
+        subjects = json.load(f)

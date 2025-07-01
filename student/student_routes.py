@@ -1,12 +1,13 @@
-from flask import Blueprint, request, jsonify, send_from_directory, current_app
+from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 import datetime, os
+import sys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 student_routes = Blueprint('student_routes', __name__)
 
-from global_state import users, subjects
+from global_state import users, subjects, save_subjects
 
-# 🧠 Helper Functions
 def get_email_from_token(token):
     try:
         import jwt
@@ -21,7 +22,6 @@ def get_email_from_token(token):
 def find_subject(sid):
     return next((s for s in subjects if str(s['id']) == str(sid)), None)
 
-# 🎓 View Subjects with Question + Answer Key (if 1 hour passed)
 @student_routes.route('/subjects', methods=['GET'])
 def list_subjects():
     token = request.headers.get('Authorization')
@@ -47,7 +47,6 @@ def list_subjects():
         })
     return jsonify(result)
 
-# 📤 Upload student answer
 @student_routes.route('/upload', methods=['POST'])
 def upload_answer():
     token = request.headers.get('Authorization')
@@ -75,4 +74,5 @@ def upload_answer():
         'file': filename,
         'time': datetime.datetime.utcnow().isoformat()
     }
+    save_subjects()
     return 'Answer uploaded successfully', 200

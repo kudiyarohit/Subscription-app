@@ -1,7 +1,7 @@
 # ✅ Flask backend using modular blueprints (ready for Render)
 # Structure includes: auth, otp, payment, admin, student routes
 
-from flask import Flask, send_from_directory
+from flask import Flask, send_from_directory, redirect
 from flask_cors import CORS
 import os
 
@@ -39,7 +39,11 @@ def serve_file(folder, filename):
 for subfolder in ['uploads', 'uploads/questions', 'uploads/answers', 'uploads/keys']:
     os.makedirs(subfolder, exist_ok=True)
 
+@app.route('/')
+def home():
+    return redirect('/admin')
+
 if __name__ == '__main__':
     import os
     port = int(os.environ.get("PORT", 5000))
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=True)
