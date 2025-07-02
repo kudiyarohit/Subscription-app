@@ -1,12 +1,11 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
-import datetime, os
-import sys
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import datetime, os, sys
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 student_routes = Blueprint('student_routes', __name__)
 
-from global_state import users, subjects, save_subjects
+from global_state import users, subjects, save_subjects, get_subjects_for_user
 
 def get_email_from_token(token):
     try:
@@ -27,46 +26,31 @@ def list_subjects():
     token = request.headers.get('Authorization')
     email = get_email_from_token(token)
     if not email or email not in users or not users[email]['is_subscribed']:
-        return 'Unauthorized or not subscribed', 401
+        return jsonify({"error": "Unauthorized or not subscribed"}), 401
 
-    now = datetime.datetime.utcnow()
-    result = []
-    for s in subjects:
-        a = s.get('answers', {}).get(email)
-        uploaded_time = datetime.datetime.fromisoformat(a['time']) if a else None
-        key_ready = uploaded_time and (now - uploaded_time).total_seconds() >= 3600
-
-        result.append({
-            'id': s['id'],
-            'name': s['name'],
-            'question_file': f"/files/questions/{s['question_file']}",
-            'answer_uploaded': bool(a),
-            'key_ready': key_ready,
-            'answer_key': f"/files/keys/{s['keys']['file']}" if key_ready and 'keys' in s else None,
-            'marks': s.get('marks', {}).get(email)
-        })
-    return jsonify(result)
+    return jsonify(get_subjects_for_user(email))
 
 @student_routes.route('/upload', methods=['POST'])
-def upload_answer():
+def upload_answer_fallback():
     token = request.headers.get('Authorization')
     email = get_email_from_token(token)
     if not email:
-        return 'Unauthorized', 401
+        return jsonify({"error": "Unauthorized"}), 401
 
-    sid = request.form.get('subject_id')
+    subject_id = request.form.get('subject_id')
     pdf = request.files.get('answer_pdf')
-    if not sid or not pdf:
-        return 'Missing form data', 400
+    if not subject_id or not pdf:
+        return jsonify({"error": "Missing subject_id or file"}), 400
 
-    subject = find_subject(sid)
+    subject = find_subject(subject_id)
     if not subject:
-        return 'Invalid subject', 400
+        return jsonify({"error": "Invalid subject"}), 400
 
+    # Save PDF
     ANSWERS_FOLDER = os.path.join('uploads', 'answers')
     os.makedirs(ANSWERS_FOLDER, exist_ok=True)
 
-    filename = secure_filename(f"{email}_{sid}.pdf")
+    filename = secure_filename(f"{email}_{subject_id}.pdf")
     filepath = os.path.join(ANSWERS_FOLDER, filename)
     pdf.save(filepath)
 
@@ -74,5 +58,6 @@ def upload_answer():
         'file': filename,
         'time': datetime.datetime.utcnow().isoformat()
     }
+
     save_subjects()
-    return 'Answer uploaded successfully', 200
+    return jsonify({"message": "Answer uploaded successfully"}), 200

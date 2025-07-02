@@ -49,3 +49,13 @@ def login():
         'is_verified': user['is_verified'],
         'is_subscribed': user['is_subscribed']
     }), 200 if user['is_verified'] else 202
+
+@auth_routes.route('/status/<email>', methods=['GET'])
+def check_user_status(email):
+    user = users.get(email)
+    if not user:
+        return jsonify({'error': 'User not found'}), 404
+    return jsonify({
+        'is_verified': user.get('is_verified', False),
+        'is_subscribed': user.get('is_subscribed', False)
+    }), 200

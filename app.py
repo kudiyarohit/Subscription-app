@@ -12,7 +12,7 @@ from payment import payment_routes
 from admin import admin_routes
 from student.student_routes import student_routes  # <-- new module to handle subject, upload, etc.
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
 app.secret_key = 'eKhGiWsVT0fqxEU98VWp'
 
@@ -35,6 +35,11 @@ def serve_file(folder, filename):
         return send_from_directory(dirs[folder], filename)
     return 'Invalid folder', 404
 
+# ✅ Serve uploaded payment screenshots (e.g., user_payment.jpg)
+@app.route('/uploads/<filename>')
+def serve_uploads(filename):
+    return send_from_directory('uploads', filename)
+
 # Ensure folder structure exists
 for subfolder in ['uploads', 'uploads/questions', 'uploads/answers', 'uploads/keys']:
     os.makedirs(subfolder, exist_ok=True)
@@ -44,6 +49,5 @@ def home():
     return redirect('/admin')
 
 if __name__ == '__main__':
-    import os
     port = int(os.environ.get("PORT", 5000))
     app.run(host='0.0.0.0', port=port, debug=True)

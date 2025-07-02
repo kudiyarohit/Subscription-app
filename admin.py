@@ -1,4 +1,4 @@
-from flask import Blueprint, request, render_template_string, redirect
+from flask import Blueprint, request, render_template, redirect
 import os
 from global_state import users, save_users, subjects, save_subjects
 
@@ -17,45 +17,27 @@ def admin_dashboard():
             if email in users and not users[email]['is_subscribed']:
                 pending.append((email, f"/uploads/{filename}"))
 
-    return render_template_string("""
-        <h2>Pending Payments</h2>
-        {% for email, img in pending %}
-            <div>
-                <p><strong>{{ email }}</strong></p>
-                <img src="{{ img }}" height="200" />
-                <form method="POST" action="/admin/approve">
-                    <input type="hidden" name="email" value="{{ email }}" />
-                    <button type="submit">Approve</button>
-                </form>
-            </div><hr>
-        {% endfor %}
+    # Gather submitted answers
+    ANSWERS_FOLDER = os.path.join("uploads", "answers")
+    answers_by_subject = {}
+    if os.path.exists(ANSWERS_FOLDER):
+        for subject in subjects:
+            sid = str(subject['id'])
+            answers_by_subject[sid] = []
+            for filename in os.listdir(ANSWERS_FOLDER):
+                if filename.endswith(".pdf") and filename.startswith(f"{sid}_"):
+                    parts = filename.split("_", 1)
+                    if len(parts) == 2:
+                        email = parts[1].replace(".pdf", "")
+                        answers_by_subject[sid].append({
+                            'email': email,
+                            'file': f"/files/answers/{filename}"
+                        })
 
-        <h2>Add New Subject</h2>
-        <form method="POST" action="/admin/add_subject" enctype="multipart/form-data">
-            Subject Name: <input name="subject_name" required />
-            Question File: <input type="file" name="question_file" required />
-            <button type="submit">Add Subject</button>
-        </form><hr>
-
-        <h2>Upload Answer Keys</h2>
-        <form method="POST" action="/admin/upload_key" enctype="multipart/form-data">
-            <select name="subject_id">
-                {% for s in subjects %}
-                <option value="{{ s['id'] }}">{{ s['name'] }}</option>
-                {% endfor %}
-            </select>
-            <input type="file" name="key_pdf" required />
-            <button type="submit">Upload Key</button>
-        </form><hr>
-
-        <h2>Update Marks</h2>
-        <form method="POST" action="/admin/update_marks">
-            Email: <input name="email" required />
-            Subject ID: <input name="subject_id" required />
-            Marks: <input name="marks" required />
-            <button type="submit">Submit</button>
-        </form>
-    """, pending=pending, subjects=subjects)
+    return render_template("admin_dashboard.html",
+                           pending=pending,
+                           subjects=subjects,
+                           answers_by_subject=answers_by_subject)
 
 @admin_routes.route('/approve', methods=['POST'])
 def approve_user():
