@@ -24,4 +24,4 @@ COPY . .
 EXPOSE 5000
 
 # Run using gunicorn for production
-CMD ["python", "app.py"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--timeout", "120", "app:app"]]
