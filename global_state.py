@@ -2,7 +2,7 @@ import json
 import os
 
 # Base URL for serving files
-BASE_URL = "https://improvement-test-medal-elements.trycloudflare.com/"
+BASE_URL = "http://34.56.82.234:5000/"
 
 # File to persist users
 USERS_FILE = 'users.json'
@@ -13,6 +13,11 @@ if os.path.exists(USERS_FILE):
         users = json.load(f)
 else:
     users = {}
+
+# ✅ Ensure all users have a username field
+for user in users.values():
+    if 'username' not in user:
+        user['username'] = ""
 
 # Save users to disk
 def save_users():

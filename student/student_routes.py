@@ -29,6 +29,23 @@ def list_subjects():
         return jsonify({"error": "Unauthorized or not subscribed"}), 401
 
     return jsonify(get_subjects_for_user(email))
+from flask import current_app
+import smtplib
+
+# Send email notification to admin
+def notify_admin_upload(email, subject_name):
+    try:
+        sender = os.getenv("EMAIL")
+        password = os.getenv("PASSWORD")
+        admin = os.getenv("ADMIN_EMAIL")
+        msg = f"Subject: New Answer Uploaded\n\nStudent {email} uploaded an answer for '{subject_name}'."
+
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
+            server.login(sender, password)
+            server.sendmail(sender, admin, msg)
+    except Exception as e:
+        print(f"❌ Failed to notify admin: {e}")
+
 
 @student_routes.route('/upload', methods=['POST'])
 def upload_answer_fallback():
@@ -60,4 +77,8 @@ def upload_answer_fallback():
     }
 
     save_subjects()
+    notify_admin_upload(email, subject['name'])
     return jsonify({"message": "Answer uploaded successfully"}), 200
+
+
+

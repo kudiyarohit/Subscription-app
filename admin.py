@@ -29,8 +29,9 @@ def admin_dashboard():
                     parts = filename.split("_", 1)
                     if len(parts) == 2:
                         email = parts[1].replace(".pdf", "")
+                        username = users.get(email, {}).get("username", email)  # ✅ show name
                         answers_by_subject[sid].append({
-                            'email': email,
+                            'email': username,
                             'file': f"/files/answers/{filename}"
                         })
 
@@ -108,4 +109,67 @@ def add_subject():
 
     subjects.append(new_subject)
     save_subjects()
+    return redirect('/admin')
+
+# ✅ Delete subject route
+@admin_routes.route('/delete_subject', methods=['POST'])
+def delete_subject():
+    sid = request.form.get('subject_id')
+
+    subject = next((s for s in subjects if str(s['id']) == str(sid)), None)
+    if not subject:
+        return 'Invalid subject', 400
+
+    # Delete question file
+    qfile = subject.get('question_file')
+    if qfile:
+        qpath = os.path.join('uploads', 'questions', qfile)
+        if os.path.exists(qpath):
+            os.remove(qpath)
+
+    # Delete answer key
+    keyfile = subject.get('keys', {}).get('file')
+    if keyfile:
+        kpath = os.path.join('uploads', 'keys', keyfile)
+        if os.path.exists(kpath):
+            os.remove(kpath)
+
+    # Delete all student answer files
+    for email, info in subject.get('answers', {}).items():
+        ans_path = os.path.join('uploads', 'answers', info['file'])
+        if os.path.exists(ans_path):
+            os.remove(ans_path)
+
+    # Remove subject from list
+    subjects.remove(subject)
+    save_subjects()
+
+    return redirect('/admin')
+
+
+@admin_routes.route('/delete_subject_files', methods=['POST'])
+def delete_subject_files():
+    sid = request.form.get('subject_id')
+    subject = next((s for s in subjects if str(s['id']) == str(sid)), None)
+
+    if not subject:
+        return 'Invalid subject', 400
+
+    # Delete question file
+    qfile_path = os.path.join("uploads", "questions", subject['question_file'])
+    if os.path.exists(qfile_path):
+        os.remove(qfile_path)
+
+    # Delete answer key file (if exists)
+    key_file = subject.get("keys", {}).get("file")
+    if key_file:
+        kfile_path = os.path.join("uploads", "keys", key_file)
+        if os.path.exists(kfile_path):
+            os.remove(kfile_path)
+        subject['keys'] = {}
+
+    # Remove from subject object
+    subject['question_file'] = ""
+    save_subjects()
+
     return redirect('/admin')

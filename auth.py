@@ -59,3 +59,17 @@ def check_user_status(email):
         'is_verified': user.get('is_verified', False),
         'is_subscribed': user.get('is_subscribed', False)
     }), 200
+
+@auth_routes.route('/username', methods=['POST'])
+def update_username():
+    data = request.get_json()
+    email = data.get('email')
+    username = data.get('username')
+
+    if email not in users:
+        return jsonify({'msg': 'User not found'}), 404
+
+    users[email]['username'] = username
+    from global_state import save_users
+    save_users()
+    return jsonify({'msg': 'Username saved'}), 200

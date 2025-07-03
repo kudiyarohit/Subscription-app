@@ -2,7 +2,6 @@
 {% block content %}
 
 <div class="container-fluid py-4">
-  <!-- Title -->
   <h4 class="mb-4 text-primary"><i class="fas fa-user-shield"></i> Admin Dashboard</h4>
 
   <!-- Pending Payments -->
@@ -55,7 +54,7 @@
     </div>
   </div>
 
-  <!-- Upload Answer Key -->
+  <!-- Upload Answer Key + Delete Buttons -->
   <div class="row mb-4">
     <div class="col-12">
       <div class="card p-4">
@@ -79,11 +78,24 @@
             </div>
           </div>
         </form>
+
+        <!-- 🔴 New Delete Question & Key Button -->
+        {% for s in subjects %}
+        <form method="POST" action="/admin/delete_subject_files" class="mt-3">
+          <input type="hidden" name="subject_id" value="{{ s['id'] }}">
+          <div class="d-flex justify-content-end">
+            <button type="submit" class="btn btn-outline-danger btn-sm">
+              Delete Q & Key for "{{ s['name'] }}"
+            </button>
+          </div>
+        </form>
+        {% endfor %}
       </div>
     </div>
   </div>
+
   <hr>
-<h2>📂 Review Submitted Answers</h2>
+  <h2>📂 Review Submitted Answers</h2>
   {% for subject in subjects %}
     <div style="margin-bottom: 30px;">
       <h4>{{ subject.name }} (Subject ID: {{ subject.id }})</h4>
@@ -92,16 +104,24 @@
         <ul>
           {% for answer in answers %}
             <li>
-              <strong>{{ answer.email }}</strong> —
-              <a href="{{ answer.file }}" target="_blank">View Answer PDF</a>
+              <strong>{{ answer.username }}</strong> ({{ answer.email }}) —
+              <a href="{{ answer.file }}" target="_blank">View PDF</a><br>
+              <small>🕒 Uploaded at: {{ answer.time }}</small>
             </li>
           {% endfor %}
         </ul>
       {% else %}
         <p style="color: gray;">No answers submitted yet.</p>
       {% endif %}
+
+      <!-- 🗑️ Full Delete Subject Button -->
+      <form method="POST" action="/admin/delete_subject" onsubmit="return confirm('Are you sure you want to delete this subject? This will delete all related files and student answers.')">
+        <input type="hidden" name="subject_id" value="{{ subject.id }}">
+        <button class="btn btn-danger btn-sm mt-2">🗑️ Delete Subject</button>
+      </form>
     </div>
   {% endfor %}
+
   <!-- Update Marks -->
   <div class="row mb-4">
     <div class="col-12">
