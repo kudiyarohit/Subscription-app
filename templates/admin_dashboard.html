@@ -83,7 +83,7 @@
 
         <!-- 🔴 New Delete Question & Key Button -->
         {% for s in subjects %}
-        <form method="POST" action="/admin/delete_subject_files" class="mt-3">
+        <form method="POST" action="/admin/delete_subject" class="mt-3">
           <input type="hidden" name="subject_id" value="{{ s['id'] }}">
           <div class="d-flex justify-content-end">
             <button type="submit" class="btn btn-outline-danger btn-sm">

@@ -5,10 +5,14 @@ from datetime import datetime, timedelta
 import os
 from dotenv import load_dotenv
 
+from models import User
+from db import db
+
 load_dotenv()
 
 otp_routes = Blueprint('otp', __name__)
-email_otps = {}
+email_otps = {}  # In-memory OTP storage, valid for 5 mins
+
 
 @otp_routes.route('/send', methods=['POST'])
 def send_otp():
@@ -21,9 +25,8 @@ def send_otp():
         'expires_at': datetime.utcnow() + timedelta(minutes=5)
     }
 
-    # Send OTP using Gmail SMTP
     sender = os.getenv("EMAIL")
-    password = os.getenv("PASSWORD")  # App password if using Gmail
+    password = os.getenv("PASSWORD")
     message = f"Subject: Your OTP\n\nYour OTP is {otp}. It is valid for 5 minutes."
 
     try:
@@ -34,9 +37,9 @@ def send_otp():
     except Exception as e:
         return jsonify({'msg': f'Failed to send OTP: {str(e)}'}), 500
 
+
 @otp_routes.route('/verify', methods=['POST'])
 def verify_otp():
-    from global_state import users
     data = request.get_json()
     email = data.get('email')
     otp_input = data.get('otp')
@@ -48,6 +51,9 @@ def verify_otp():
     if record['otp'] != otp_input:
         return jsonify({'msg': 'Invalid OTP'}), 400
 
-    if email in users:
-        users[email]['is_verified'] = True
+    user = User.query.filter_by(email=email).first()
+    if user:
+        user.is_verified = True
+        db.session.commit()
+
     return jsonify({'msg': 'OTP verified'}), 200

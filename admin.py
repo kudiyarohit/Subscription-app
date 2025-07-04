@@ -1,53 +1,44 @@
 from flask import Blueprint, request, render_template, redirect
-import os
-from global_state import users, save_users, subjects, save_subjects
 from werkzeug.utils import secure_filename
+import os
 from datetime import datetime
-import json
 
-admin_routes = Blueprint('admin', __name__)
+from models import User, Subject, Payment, Answer, Mark
+from db import db
+
+admin_routes = Blueprint('admin_routes', __name__)
 UPLOAD_FOLDER = "uploads"
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
-
+# ------------------ 🔧 Dashboard ------------------ #
 @admin_routes.route('/')
 def admin_dashboard():
+    # Pending payments
     pending = []
-    for filename in os.listdir(UPLOAD_FOLDER):
-        if filename.endswith("_payment.jpg"):
-            parts = filename.rsplit("_", 2)
-            if len(parts) == 3:
-                email = parts[0]
-                subject_id = parts[1]
-                if email in users and str(subject_id) in users[email].get("paid_subjects", {}):
-                    paid_info = users[email]["paid_subjects"][str(subject_id)]
-                    if not paid_info.get("approved", False):
-                        # ✅ define subject_name before using it
-                        subject_name = next((s["name"] for s in subjects if str(s["id"]) == str(subject_id)), "Unknown Subject")
-                        pending.append({
-                            "email": email,
-                            "subject_id": subject_id,
-                            "subject_name": subject_name,
-                            "screenshot": f"/uploads/{filename}"
-                        })
+    payments = Payment.query.filter_by(approved=False).all()
+    for p in payments:
+        subject = Subject.query.filter_by(id=p.subject_id).first()
+        pending.append({
+            "email": p.user_email,
+            "subject_id": p.subject_id,
+            "subject_name": subject.name if subject else "Unknown",
+            "screenshot": f"/uploads/{p.screenshot_filename}"
+        })
 
-    ANSWERS_FOLDER = os.path.join("uploads", "answers")
+    # Uploaded answers
     answers_by_subject = {}
-    if os.path.exists(ANSWERS_FOLDER):
-        for subject in subjects:
-            sid = str(subject['id'])
-            answers_by_subject[sid] = []
-            for filename in os.listdir(ANSWERS_FOLDER):
-                if filename.endswith(".pdf") and filename.startswith(f"{sid}_"):
-                    parts = filename.split("_", 1)
-                    if len(parts) == 2:
-                        email = parts[1].replace(".pdf", "")
-                        username = users.get(email, {}).get("username", email)
-                        answers_by_subject[sid].append({
-                            'email': username,
-                            'file': f"/uploads/answers/{filename}"
-                        })
+    subjects = Subject.query.all()
+    for subject in subjects:
+        sid = str(subject.id)
+        answers_by_subject[sid] = []
+        answers = Answer.query.filter_by(subject_id=sid).all()
+        for a in answers:
+            user = User.query.filter_by(email=a.user_email).first()
+            username = user.username if user and user.username else a.user_email
+            answers_by_subject[sid].append({
+                'email': username,
+                'file': f"/uploads/answers/{a.file_name}"
+            })
 
     return render_template("admin_dashboard.html",
                            pending=pending,
@@ -55,27 +46,21 @@ def admin_dashboard():
                            answers_by_subject=answers_by_subject)
 
 
-@admin_routes.route('/approve', methods=['POST'])
-def approve_user():
-    email = request.form.get('email')
-    if email in users:
-        users[email]['is_subscribed'] = True
-        save_users()
-    return redirect('/admin')
-
-# ✅ NEW: Approve subject-specific payment
+# ------------------ ✅ Approve Subject Payment ------------------ #
 @admin_routes.route('/approve_subject_payment', methods=['POST'])
 def approve_subject_payment():
     email = request.form.get('email')
     subject_id = request.form.get('subject_id')
 
-    if email in users and subject_id in users[email].get("paid_subjects", {}):
-        users[email]["paid_subjects"][subject_id]["approved"] = True
-        save_users()
+    payment = Payment.query.filter_by(user_email=email, subject_id=subject_id).first()
+    if payment:
+        payment.approved = True
+        db.session.commit()
         return redirect('/admin')
-    else:
-        return "Invalid data", 400
+    return "Invalid data", 400
 
+
+# ------------------ 🔑 Upload Answer Key ------------------ #
 @admin_routes.route('/upload_key', methods=['POST'])
 def upload_answer_key():
     sid = request.form.get('subject_id')
@@ -84,33 +69,38 @@ def upload_answer_key():
     if not sid or not pdf:
         return 'Missing data', 400
 
-    subject = next((s for s in subjects if str(s['id']) == str(sid)), None)
-    if not subject:
-        return 'Invalid subject', 400
-
     filename = f"key_{sid}.pdf"
     KEYS_FOLDER = os.path.join("uploads", "keys")
     os.makedirs(KEYS_FOLDER, exist_ok=True)
     pdf.save(os.path.join(KEYS_FOLDER, filename))
 
-    subject['keys'] = {'file': filename}
-    save_subjects()
-    return redirect('/admin')
+    subject = Subject.query.filter_by(id=sid).first()
+    if subject:
+        subject.key_file = filename
+        db.session.commit()
+        return redirect('/admin')
+    return 'Invalid subject', 400
 
+
+# ------------------ 🎯 Update Marks ------------------ #
 @admin_routes.route('/update_marks', methods=['POST'])
 def update_marks():
     email = request.form.get('email')
     sid = request.form.get('subject_id')
     marks = request.form.get('marks')
 
-    subject = next((s for s in subjects if str(s['id']) == str(sid)), None)
-    if not subject:
-        return 'Invalid subject', 400
+    mark = Mark.query.filter_by(user_email=email, subject_id=sid).first()
+    if mark:
+        mark.score = marks
+    else:
+        mark = Mark(user_email=email, subject_id=sid, score=marks)
+        db.session.add(mark)
 
-    subject.setdefault('marks', {})[email] = marks
-    save_subjects()
+    db.session.commit()
     return redirect('/admin')
 
+
+# ------------------ ➕ Add Subject ------------------ #
 @admin_routes.route('/add_subject', methods=['POST'])
 def add_subject():
     name = request.form.get('subject_name')
@@ -122,76 +112,45 @@ def add_subject():
     QUESTIONS_FOLDER = os.path.join("uploads", "questions")
     os.makedirs(QUESTIONS_FOLDER, exist_ok=True)
 
-    next_id = max([s["id"] for s in subjects], default=0) + 1
-    filename = f"{name.lower().replace(' ', '_')}.pdf"
+    filename = secure_filename(qfile.filename)
     qfile.save(os.path.join(QUESTIONS_FOLDER, filename))
 
-    new_subject = {
-        "id": next_id,
-        "name": name,
-        "question_file": filename,
-        "keys": {},
-        "answers": {},
-        "marks": {}
-    }
+    new_subject = Subject(name=name, question_file=filename)
+    db.session.add(new_subject)
+    db.session.commit()
 
-    subjects.append(new_subject)
-    save_subjects()
     return redirect('/admin')
 
+
+# ------------------ ❌ Delete Subject ------------------ #
 @admin_routes.route('/delete_subject', methods=['POST'])
 def delete_subject():
     sid = request.form.get('subject_id')
-    subject = next((s for s in subjects if str(s['id']) == str(sid)), None)
+    subject = Subject.query.filter_by(id=sid).first()
 
     if not subject:
         return 'Invalid subject', 400
 
-    qfile = subject.get('question_file')
-    if qfile:
-        qpath = os.path.join('uploads', 'questions', qfile)
-        if os.path.exists(qpath):
-            os.remove(qpath)
+    # Delete files
+    if subject.question_file:
+        qpath = os.path.join('uploads', 'questions', subject.question_file)
+        if os.path.exists(qpath): os.remove(qpath)
 
-    keyfile = subject.get('keys', {}).get('file')
-    if keyfile:
-        kpath = os.path.join('uploads', 'keys', keyfile)
-        if os.path.exists(kpath):
-            os.remove(kpath)
+    if subject.key_file:
+        kpath = os.path.join('uploads', 'keys', subject.key_file)
+        if os.path.exists(kpath): os.remove(kpath)
 
-    for email, info in subject.get('answers', {}).items():
-        ans_path = os.path.join('uploads', 'answers', info['file'])
-        if os.path.exists(ans_path):
-            os.remove(ans_path)
-
-    subjects.remove(subject)
-    save_subjects()
-    return redirect('/admin')
-
-@admin_routes.route('/delete_subject_files', methods=['POST'])
-def delete_subject_files():
-    sid = request.form.get('subject_id')
-    subject = next((s for s in subjects if str(s['id']) == str(sid)), None)
-
-    if not subject:
-        return 'Invalid subject', 400
-
-    qfile_path = os.path.join("uploads", "questions", subject['question_file'])
-    if os.path.exists(qfile_path):
-        os.remove(qfile_path)
-
-    key_file = subject.get("keys", {}).get("file")
-    if key_file:
-        kfile_path = os.path.join("uploads", "keys", key_file)
-        if os.path.exists(kfile_path):
-            os.remove(kfile_path)
-        subject['keys'] = {}
-
-    subject['question_file'] = ""
-    save_subjects()
+    # Delete subject & related answers/marks/payments
+    Answer.query.filter_by(subject_id=sid).delete()
+    Mark.query.filter_by(subject_id=sid).delete()
+    Payment.query.filter_by(subject_id=sid).delete()
+    db.session.delete(subject)
+    db.session.commit()
 
     return redirect('/admin')
 
+
+# ------------------ 🔁 Replace Question File ------------------ #
 @admin_routes.route("/add_question_to_subject", methods=["POST"])
 def add_question_to_subject():
     subject_id = request.form['subject_id']
@@ -207,18 +166,11 @@ def add_question_to_subject():
     save_path = os.path.join(questions_dir, f"{subject_id}_{filename}")
     question_file.save(save_path)
 
-    relative_path = save_path.replace("\\", "/")
+    subject = Subject.query.filter_by(id=subject_id).first()
+    if not subject:
+        return "Invalid subject", 400
 
-    with open('subjects.json', 'r+', encoding='utf-8') as f:
-        subjects = json.load(f)
-        for subject in subjects:
-            if str(subject['id']) == str(subject_id):
-                if 'extra_questions' not in subject:
-                    subject['extra_questions'] = []
-                subject['extra_questions'].append(relative_path)
-                break
-        f.seek(0)
-        json.dump(subjects, f, indent=2)
-        f.truncate()
+    subject.question_file = f"{subject_id}_{filename}"
+    db.session.commit()
 
     return redirect('/admin')
