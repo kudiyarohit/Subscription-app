@@ -16,11 +16,22 @@ def admin_dashboard():
     pending = []
     for filename in os.listdir(UPLOAD_FOLDER):
         if filename.endswith("_payment.jpg"):
-            email = filename.replace('_payment.jpg', '')
-            if email in users and not users[email]['is_subscribed']:
-                pending.append((email, f"/uploads/{filename}"))
+            parts = filename.rsplit("_", 2)
+            if len(parts) == 3:
+                email = parts[0]
+                subject_id = parts[1]
+                if email in users and str(subject_id) in users[email].get("paid_subjects", {}):
+                    paid_info = users[email]["paid_subjects"][str(subject_id)]
+                    if not paid_info.get("approved", False):
+                        # ✅ define subject_name before using it
+                        subject_name = next((s["name"] for s in subjects if str(s["id"]) == str(subject_id)), "Unknown Subject")
+                        pending.append({
+                            "email": email,
+                            "subject_id": subject_id,
+                            "subject_name": subject_name,
+                            "screenshot": f"/uploads/{filename}"
+                        })
 
-    # Gather submitted answers
     ANSWERS_FOLDER = os.path.join("uploads", "answers")
     answers_by_subject = {}
     if os.path.exists(ANSWERS_FOLDER):
@@ -43,6 +54,7 @@ def admin_dashboard():
                            subjects=subjects,
                            answers_by_subject=answers_by_subject)
 
+
 @admin_routes.route('/approve', methods=['POST'])
 def approve_user():
     email = request.form.get('email')
@@ -50,6 +62,19 @@ def approve_user():
         users[email]['is_subscribed'] = True
         save_users()
     return redirect('/admin')
+
+# ✅ NEW: Approve subject-specific payment
+@admin_routes.route('/approve_subject_payment', methods=['POST'])
+def approve_subject_payment():
+    email = request.form.get('email')
+    subject_id = request.form.get('subject_id')
+
+    if email in users and subject_id in users[email].get("paid_subjects", {}):
+        users[email]["paid_subjects"][subject_id]["approved"] = True
+        save_users()
+        return redirect('/admin')
+    else:
+        return "Invalid data", 400
 
 @admin_routes.route('/upload_key', methods=['POST'])
 def upload_answer_key():
@@ -122,21 +147,18 @@ def delete_subject():
     if not subject:
         return 'Invalid subject', 400
 
-    # Delete question file
     qfile = subject.get('question_file')
     if qfile:
         qpath = os.path.join('uploads', 'questions', qfile)
         if os.path.exists(qpath):
             os.remove(qpath)
 
-    # Delete answer key
     keyfile = subject.get('keys', {}).get('file')
     if keyfile:
         kpath = os.path.join('uploads', 'keys', keyfile)
         if os.path.exists(kpath):
             os.remove(kpath)
 
-    # Delete all student answer files
     for email, info in subject.get('answers', {}).items():
         ans_path = os.path.join('uploads', 'answers', info['file'])
         if os.path.exists(ans_path):
@@ -144,7 +166,6 @@ def delete_subject():
 
     subjects.remove(subject)
     save_subjects()
-
     return redirect('/admin')
 
 @admin_routes.route('/delete_subject_files', methods=['POST'])
@@ -155,12 +176,10 @@ def delete_subject_files():
     if not subject:
         return 'Invalid subject', 400
 
-    # Delete question file
     qfile_path = os.path.join("uploads", "questions", subject['question_file'])
     if os.path.exists(qfile_path):
         os.remove(qfile_path)
 
-    # Delete answer key file (if exists)
     key_file = subject.get("keys", {}).get("file")
     if key_file:
         kfile_path = os.path.join("uploads", "keys", key_file)
@@ -173,7 +192,7 @@ def delete_subject_files():
 
     return redirect('/admin')
 
-@admin_routes.route("/admin/add_question_to_subject", methods=["POST"])
+@admin_routes.route("/add_question_to_subject", methods=["POST"])
 def add_question_to_subject():
     subject_id = request.form['subject_id']
     question_file = request.files['question_file']

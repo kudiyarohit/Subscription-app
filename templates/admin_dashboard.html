@@ -10,13 +10,15 @@
       <div class="card p-4">
         <h5><i class="fas fa-hourglass-half text-warning me-2"></i>Pending Payments</h5>
         {% if pending %}
-          {% for email, img in pending %}
+          {% for p in pending %}
           <div class="d-flex align-items-center my-3">
-            <img src="{{ img }}" alt="payment" class="border-radius-lg" height="120">
+            <img src="{{ p.screenshot }}" alt="payment" class="border-radius-lg" height="120">
             <div class="ms-4">
-              <h6>{{ email }}</h6>
-              <form method="POST" action="/admin/approve">
-                <input type="hidden" name="email" value="{{ email }}">
+              <h6>{{ p.email }}</h6>
+              <p class="mb-1 text-muted">Subject: <strong>{{ p.subject_name }}</strong> (ID: {{ p.subject_id }})</p>
+              <form method="POST" action="/admin/approve_subject_payment">
+                <input type="hidden" name="email" value="{{ p.email }}">
+                <input type="hidden" name="subject_id" value="{{ p.subject_id }}">
                 <button class="btn btn-success btn-sm mt-2">Approve</button>
               </form>
             </div>
