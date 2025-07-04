@@ -2,7 +2,7 @@ import json
 import os
 
 # Base URL for serving files
-BASE_URL = "http://34.56.82.234:5000/"
+BASE_URL = "http://34.56.82.234:5000"
 
 # File to persist users
 USERS_FILE = 'users.json'
@@ -55,11 +55,11 @@ def get_subjects_for_user(email):
         s = sub.copy()
 
         # Add full file URL for question
-        s['question_file'] = f"{BASE_URL}/files/questions/{sub['question_file']}"
+        s['question_file'] = f"{BASE_URL}/uploads/questions/{sub['question_file']}"
 
         # Add key file if uploaded
         key_file = sub.get("keys", {}).get("file")
-        s['answer_key'] = f"{BASE_URL}/files/keys/{key_file}" if key_file else None
+        s['answer_key'] = f"{BASE_URL}/uploads/keys/{key_file}" if key_file else None
 
         # Answer uploaded status
         s['answer_uploaded'] = email in sub.get("answers", {})
