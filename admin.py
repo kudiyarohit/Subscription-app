@@ -46,7 +46,7 @@ def admin_dashboard():
                         username = users.get(email, {}).get("username", email)
                         answers_by_subject[sid].append({
                             'email': username,
-                            'file': f"/files/answers/{filename}"
+                            'file': f"/uploads/answers/{filename}"
                         })
 
     return render_template("admin_dashboard.html",
