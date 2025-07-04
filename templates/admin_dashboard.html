@@ -93,6 +93,33 @@
       </div>
     </div>
   </div>
+<!-- Add New Questions to Existing Subject -->
+<div class="row mb-4">
+  <div class="col-12">
+    <div class="card p-4">
+      <h5><i class="fas fa-file-upload text-success me-2"></i>Add New Questions to Existing Subject</h5>
+      <form method="POST" action="/admin/add_question_to_subject" enctype="multipart/form-data" class="mt-3">
+        <div class="row">
+          <div class="col-md-5 mb-3">
+            <label>Select Subject</label>
+            <select name="subject_id" class="form-control" required>
+              {% for s in subjects %}
+              <option value="{{ s['id'] }}">{{ s['name'] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="col-md-5 mb-3">
+            <label>New Question File (PDF)</label>
+            <input type="file" class="form-control" name="question_file" required>
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <button class="btn btn-success w-100" type="submit">Upload</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
 
   <hr>
   <h2>📂 Review Submitted Answers</h2>

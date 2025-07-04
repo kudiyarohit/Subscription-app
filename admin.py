@@ -1,6 +1,9 @@
 from flask import Blueprint, request, render_template, redirect
 import os
 from global_state import users, save_users, subjects, save_subjects
+from werkzeug.utils import secure_filename
+from datetime import datetime
+import json
 
 admin_routes = Blueprint('admin', __name__)
 UPLOAD_FOLDER = "uploads"
@@ -29,7 +32,7 @@ def admin_dashboard():
                     parts = filename.split("_", 1)
                     if len(parts) == 2:
                         email = parts[1].replace(".pdf", "")
-                        username = users.get(email, {}).get("username", email)  # ✅ show name
+                        username = users.get(email, {}).get("username", email)
                         answers_by_subject[sid].append({
                             'email': username,
                             'file': f"/files/answers/{filename}"
@@ -111,12 +114,11 @@ def add_subject():
     save_subjects()
     return redirect('/admin')
 
-# ✅ Delete subject route
 @admin_routes.route('/delete_subject', methods=['POST'])
 def delete_subject():
     sid = request.form.get('subject_id')
-
     subject = next((s for s in subjects if str(s['id']) == str(sid)), None)
+
     if not subject:
         return 'Invalid subject', 400
 
@@ -140,12 +142,10 @@ def delete_subject():
         if os.path.exists(ans_path):
             os.remove(ans_path)
 
-    # Remove subject from list
     subjects.remove(subject)
     save_subjects()
 
     return redirect('/admin')
-
 
 @admin_routes.route('/delete_subject_files', methods=['POST'])
 def delete_subject_files():
@@ -168,8 +168,38 @@ def delete_subject_files():
             os.remove(kfile_path)
         subject['keys'] = {}
 
-    # Remove from subject object
     subject['question_file'] = ""
     save_subjects()
+
+    return redirect('/admin')
+
+@admin_routes.route("/admin/add_question_to_subject", methods=["POST"])
+def add_question_to_subject():
+    subject_id = request.form['subject_id']
+    question_file = request.files['question_file']
+
+    if not subject_id or not question_file:
+        return "Missing subject or file", 400
+
+    questions_dir = os.path.join('uploads', 'questions')
+    os.makedirs(questions_dir, exist_ok=True)
+
+    filename = secure_filename(question_file.filename)
+    save_path = os.path.join(questions_dir, f"{subject_id}_{filename}")
+    question_file.save(save_path)
+
+    relative_path = save_path.replace("\\", "/")
+
+    with open('subjects.json', 'r+', encoding='utf-8') as f:
+        subjects = json.load(f)
+        for subject in subjects:
+            if str(subject['id']) == str(subject_id):
+                if 'extra_questions' not in subject:
+                    subject['extra_questions'] = []
+                subject['extra_questions'].append(relative_path)
+                break
+        f.seek(0)
+        json.dump(subjects, f, indent=2)
+        f.truncate()
 
     return redirect('/admin')
