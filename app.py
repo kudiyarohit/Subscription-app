@@ -5,17 +5,28 @@ import os
 # Initialize app
 app = Flask(__name__, static_folder='static', template_folder='templates')
 CORS(app)
-app.secret_key = 'eKhGiWsVT0fqxEU98VWp'
-
-# ------------------ JWT Config ------------------ #
+from flask import Flask, send_from_directory, redirect
+from flask_cors import CORS
 from flask_jwt_extended import JWTManager
+from dotenv import load_dotenv
+import os
 
-app.config["JWT_SECRET_KEY"] = "super-secret"  # 🔐 Replace with a secure secret!
+load_dotenv()
+
+# Initialize app
+app = Flask(__name__, static_folder='static', template_folder='templates')
+CORS(app)
+
+# 🔐 Load secret from .env
+app.secret_key = os.getenv("SECRET_KEY", "fallback-key")
+app.config["JWT_SECRET_KEY"] = app.secret_key
 app.config["JWT_TOKEN_LOCATION"] = ["headers"]
 app.config["JWT_HEADER_NAME"] = "Authorization"
-app.config["JWT_HEADER_TYPE"] = ""  # plain token, not "Bearer <token>"
+app.config["JWT_HEADER_TYPE"] = ""  # if you're sending raw token without Bearer
 
+# Initialize JWT
 jwt = JWTManager(app)
+
 
 # ------------------ DB Config ------------------ #
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
@@ -67,6 +78,12 @@ for subfolder in ['uploads', 'uploads/questions', 'uploads/answers', 'uploads/ke
 @app.route('/')
 def home():
     return redirect('/admin')
+
+from flask import send_from_directory
+
+@app.route('/uploads/answers/<path:filename>')
+def serve_answer_pdf(filename):
+    return send_from_directory('uploads/answers', filename)
 
 # ------------------ Run App ------------------ #
 if __name__ == '__main__':

@@ -18,8 +18,12 @@ def admin_dashboard():
     payments = Payment.query.filter_by(approved=False).all()
     for p in payments:
         subject = Subject.query.filter_by(id=p.subject_id).first()
+        user = User.query.filter_by(email=p.user_email).first()
+        username = user.username if user and user.username else "Unknown"
+
         pending.append({
             "email": p.user_email,
+            "username": username,
             "subject_id": p.subject_id,
             "subject_name": subject.name if subject else "Unknown",
             "screenshot": f"/uploads/{p.screenshot_filename}"
@@ -54,9 +58,19 @@ def approve_subject_payment():
 
     payment = Payment.query.filter_by(user_email=email, subject_id=subject_id).first()
     if payment:
+        # ✅ Delete screenshot file
+        if payment.screenshot_filename:
+            path = os.path.join('uploads', payment.screenshot_filename)
+            if os.path.exists(path):
+                os.remove(path)
+
+        # ✅ Clear screenshot field if needed (optional)
+        # payment.screenshot_filename = None
+
         payment.approved = True
         db.session.commit()
         return redirect('/admin')
+
     return "Invalid data", 400
 
 
@@ -159,18 +173,57 @@ def add_question_to_subject():
     if not subject_id or not question_file:
         return "Missing subject or file", 400
 
-    questions_dir = os.path.join('uploads', 'questions')
-    os.makedirs(questions_dir, exist_ok=True)
-
-    filename = secure_filename(question_file.filename)
-    save_path = os.path.join(questions_dir, f"{subject_id}_{filename}")
-    question_file.save(save_path)
-
     subject = Subject.query.filter_by(id=subject_id).first()
     if not subject:
         return "Invalid subject", 400
 
-    subject.question_file = f"{subject_id}_{filename}"
+    # ✅ Remove old file if it exists
+    if subject.question_file:
+        old_path = os.path.join('uploads', 'questions', subject.question_file)
+        if os.path.exists(old_path):
+            os.remove(old_path)
+
+    # ✅ Save new file
+    questions_dir = os.path.join('uploads', 'questions')
+    os.makedirs(questions_dir, exist_ok=True)
+
+    filename = secure_filename(question_file.filename)
+    saved_filename = f"{subject_id}_{filename}"
+    question_file.save(os.path.join(questions_dir, saved_filename))
+
+    subject.question_file = saved_filename
     db.session.commit()
 
+    return redirect('/admin')
+
+@admin_routes.route('/delete_question_file', methods=['POST'])
+def delete_question_file():
+    subject_id = request.form.get('subject_id')
+    subject = Subject.query.filter_by(id=subject_id).first()
+
+    if not subject or not subject.question_file:
+        return 'Invalid subject or no question file', 400
+
+    qpath = os.path.join('uploads', 'questions', subject.question_file)
+    if os.path.exists(qpath):
+        os.remove(qpath)
+
+    subject.question_file = None
+    db.session.commit()
+    return redirect('/admin')
+
+@admin_routes.route('/delete_key_file', methods=['POST'])
+def delete_key_file():
+    subject_id = request.form.get('subject_id')
+    subject = Subject.query.filter_by(id=subject_id).first()
+
+    if not subject or not subject.key_file:
+        return 'Invalid subject or no key file', 400
+
+    kpath = os.path.join('uploads', 'keys', subject.key_file)
+    if os.path.exists(kpath):
+        os.remove(kpath)
+
+    subject.key_file = None
+    db.session.commit()
     return redirect('/admin')

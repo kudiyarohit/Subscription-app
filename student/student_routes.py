@@ -1,9 +1,8 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 from datetime import datetime
-import os, jwt
+import os, smtplib
 from dotenv import load_dotenv
-import smtplib
 
 from db import db
 from models import User, Subject, Payment, Answer, Mark
@@ -11,8 +10,6 @@ from flask_jwt_extended import jwt_required, get_jwt_identity
 
 student_routes = Blueprint('student_routes', __name__)
 load_dotenv()
-
-SECRET_KEY = os.getenv("SECRET_KEY", "default-secret")
 
 # ----------------- 📚 Get Subjects ----------------- #
 @student_routes.route('/subjects', methods=['GET'])
@@ -27,19 +24,14 @@ def get_subjects():
     result = []
 
     for subject in all_subjects:
-        # Check if answer was uploaded
         answer = Answer.query.filter_by(user_email=email, subject_id=subject.id).first()
-
-        # Check if payment was made and approved
         payment = Payment.query.filter_by(user_email=email, subject_id=subject.id, approved=True).first()
-
-        # Check if marks exist
         mark = Mark.query.filter_by(user_email=email, subject_id=subject.id).first()
 
         result.append({
             'id': subject.id,
             'name': subject.name,
-            'question_file': f"/files/questions/{subject.question_file}",
+            'question_file': f"/files/questions/{subject.question_file}" if subject.question_file else None,
             'answer_uploaded': bool(answer),
             'paid_subjects': bool(payment),
             'approved': bool(payment),
@@ -89,7 +81,6 @@ def upload_answer():
     if not subject_id or not pdf:
         return jsonify({"error": "Missing subject_id or file"}), 400
 
-    # ✅ Payment Check
     payment = Payment.query.filter_by(user_email=email, subject_id=subject_id, approved=True).first()
     if not payment:
         return jsonify({"error": "Payment not approved"}), 403
