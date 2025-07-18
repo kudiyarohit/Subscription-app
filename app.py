@@ -1,15 +1,9 @@
-from flask import Flask, send_from_directory, redirect
-from flask_cors import CORS
-import os
-
-# Initialize app
-app = Flask(__name__, static_folder='static', template_folder='templates')
-CORS(app)
-from flask import Flask, send_from_directory, redirect
+from flask import Flask, send_from_directory, redirect, request
 from flask_cors import CORS
 from flask_jwt_extended import JWTManager
 from dotenv import load_dotenv
 import os
+from datetime import timedelta
 
 load_dotenv()
 
@@ -22,23 +16,21 @@ app.secret_key = os.getenv("SECRET_KEY", "fallback-key")
 app.config["JWT_SECRET_KEY"] = app.secret_key
 app.config["JWT_TOKEN_LOCATION"] = ["headers"]
 app.config["JWT_HEADER_NAME"] = "Authorization"
-app.config["JWT_HEADER_TYPE"] = ""  # if you're sending raw token without Bearer
+app.config["JWT_HEADER_TYPE"] = "Bearer"  
 
 # Initialize JWT
 jwt = JWTManager(app)
-
 
 # ------------------ DB Config ------------------ #
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# Setup DB
 from db import db
 db.init_app(app)
 
 # Create tables
 with app.app_context():
-    from models import *  # Import all models
+    from models import *
     db.create_all()
 
 # ------------------ Register Blueprints ------------------ #
@@ -54,13 +46,20 @@ app.register_blueprint(payment_routes, url_prefix='/payment')
 app.register_blueprint(admin_routes, url_prefix='/admin')
 app.register_blueprint(student_routes, url_prefix='/student')
 
+@app.before_request
+def log_request_info():
+    print(f"🔍 Incoming {request.method} {request.path}")
+    print(f"🔐 Authorization: {request.headers.get('Authorization')}")
+
+
 # ------------------ Serve Uploaded Files ------------------ #
 @app.route('/files/<folder>/<filename>')
 def serve_file(folder, filename):
     dirs = {
         'questions': os.path.join('uploads', 'questions'),
         'answers': os.path.join('uploads', 'answers'),
-        'keys': os.path.join('uploads', 'keys')
+        'keys': os.path.join('uploads', 'keys'),
+        'tests': os.path.join('uploads', 'tests')  # ✅ NEW for individual tests
     }
     if folder in dirs:
         return send_from_directory(dirs[folder], filename)
@@ -70,20 +69,24 @@ def serve_file(folder, filename):
 def serve_uploads(filename):
     return send_from_directory('uploads', filename)
 
+@app.route('/uploads/answers/<path:filename>')
+def serve_answer_pdf(filename):
+    return send_from_directory('uploads/answers', filename)
+
 # ------------------ Ensure Folder Structure ------------------ #
-for subfolder in ['uploads', 'uploads/questions', 'uploads/answers', 'uploads/keys']:
+for subfolder in [
+    'uploads',
+    'uploads/questions',
+    'uploads/answers',
+    'uploads/keys',
+    'uploads/tests'  # ✅ new folder for individual test PDFs
+]:
     os.makedirs(subfolder, exist_ok=True)
 
 # ------------------ Default Route ------------------ #
 @app.route('/')
 def home():
     return redirect('/admin')
-
-from flask import send_from_directory
-
-@app.route('/uploads/answers/<path:filename>')
-def serve_answer_pdf(filename):
-    return send_from_directory('uploads/answers', filename)
 
 # ------------------ Run App ------------------ #
 if __name__ == '__main__':

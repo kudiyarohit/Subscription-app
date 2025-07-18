@@ -45,12 +45,12 @@ def login():
         return jsonify({'message': 'Invalid credentials'}), 401
 
     token = jwt.encode(
-    {
-        'sub': email,  # 👈 Required by flask_jwt_extended
-        'email': email,
-        'exp': datetime.datetime.utcnow() + datetime.timedelta(days=1)
-    },
-    SECRET_KEY, algorithm="HS256"
+        {
+            'sub': email,
+            'email': email,
+            'exp': datetime.datetime.utcnow() + datetime.timedelta(days=365)  # 🔁 1 year token
+        },
+        SECRET_KEY, algorithm="HS256"
     )
     return jsonify({
         'message': 'Login successful',
