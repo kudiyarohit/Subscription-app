@@ -28,6 +28,7 @@ app.config["SQLALCHEMY_DATABASE_URI"] = (
     f"mysql+pymysql://{os.getenv('DB_USER')}:{quote_plus(os.getenv('DB_PASS'))}"
     f"@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
 )
+
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 from db import db
