@@ -7,7 +7,7 @@ import os, smtplib
 from dotenv import load_dotenv
 
 from db import db
-from models import User, Subject, Test, Payment, Answer, Mark
+from models import User, Subject, Test, Payment, Answer, Mark, Evaluated
 from flask_jwt_extended import jwt_required, get_jwt_identity
 
 student_routes = Blueprint('student_routes', __name__)
@@ -37,14 +37,16 @@ def get_subjects():
         for test in subject.tests:
             answer = Answer.query.filter_by(user_email=email, test_id=test.id).first()
             mark = Mark.query.filter_by(user_email=email, test_id=test.id).first()
-
+            evaluated = Evaluated.query.filter_by(user_email=email, test_id=test.id).first()
             subject_data['tests'].append({
                 'test_id': test.id,
                 'test_name': test.name,
                 'total_marks': test.total_marks,
                 'question_file': f"/files/questions/{test.question_file}" if test.question_file else None,
                 'key_file': f"/files/keys/{test.key_file}" if test.key_file else None,
+                'evaluated_file': f"/files/evaluated/{evaluated.file_name}" if evaluated else None,
                 'key_ready': bool(test.key_file),
+                'evaluated_ready': bool(test.evaluated_file),
                 'answer_uploaded': bool(answer),
                 'marks': mark.score if mark else None
             })
@@ -128,7 +130,7 @@ def notify_admin_upload(email, test_name):
             server.login(sender, password)
             server.sendmail(sender, admin, msg)
     except Exception as e:
-        print(f"❌ Failed to notify admin: {e}")
+        print(f"Failed to notify admin: {e}")
 
 # ------------------ ✅ Get Tests per Subject ------------------ #
 @student_routes.route('/tests/<int:subject_id>', methods=['GET'])

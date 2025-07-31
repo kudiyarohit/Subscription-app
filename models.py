@@ -5,8 +5,8 @@ from datetime import datetime
 class User(db.Model):
     __tablename__ = 'users'
     email = db.Column(db.String, primary_key=True)
-    password = db.Column(db.String)
-    username = db.Column(db.String)
+    password = db.Column(db.String, nullable=False)
+    username = db.Column(db.String, nullable=False)
     is_verified = db.Column(db.Boolean, default=False)
     is_subscribed = db.Column(db.Boolean, default=False)
 
@@ -28,10 +28,11 @@ class Test(db.Model):
     subject_id = db.Column(db.Integer, db.ForeignKey('subjects.id'))
     question_file = db.Column(db.String)
     key_file = db.Column(db.String, nullable=True)
-    total_marks = db.Column(db.Integer)  # ✅ Total marks for this test
-
+    total_marks = db.Column(db.Integer)  
+    evaluated_file = db.Column(db.String, nullable=True)
     answers = db.relationship('Answer', backref='test', lazy=True)
     marks = db.relationship('Mark', backref='test', lazy=True)
+    evaluated = db.relationship('Evaluated', backref='test', lazy=True)
 
 class Payment(db.Model):
     __tablename__ = 'payments'
@@ -54,10 +55,18 @@ class Mark(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     test_id = db.Column(db.Integer, db.ForeignKey('tests.id'))
     user_email = db.Column(db.String, db.ForeignKey('users.email'))
-    score = db.Column(db.Float)  # Support decimal scores
+    score = db.Column(db.Float)  
 
 class Otp(db.Model):
     __tablename__ = 'otps'
     email = db.Column(db.String, primary_key=True)
     otp = db.Column(db.String, nullable=False)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class Evaluated(db.Model):
+    __tablename__ = 'evaluated'
+    id = db.Column(db.Integer, primary_key=True)
+    user_email = db.Column(db.String, db.ForeignKey('users.email'))
+    test_id = db.Column(db.Integer, db.ForeignKey('tests.id'))
+    file_name = db.Column(db.String)
+    submitted_at = db.Column(db.DateTime, default=datetime.utcnow)

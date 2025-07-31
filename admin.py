@@ -1,8 +1,9 @@
 from flask import Blueprint, request, render_template, redirect, jsonify
 from werkzeug.utils import secure_filename
 import os
-from models import User, Subject, Test, Payment, Answer, Mark
+from models import User, Subject, Test, Payment, Answer, Mark, Evaluated
 from db import db
+from datetime import datetime
 
 admin_routes = Blueprint('admin_routes', __name__)
 UPLOAD_FOLDER = "uploads"
@@ -105,7 +106,6 @@ def add_test():
     new_test = Test(subject_id=subject_id, name=test_name, total_marks=total_marks, question_file=saved_filename)
     db.session.add(new_test)
     db.session.commit()
-
     return redirect(f"/admin/subject/{subject_id}")
 
 @admin_routes.route('/upload_key', methods=['POST'])
@@ -172,5 +172,30 @@ def delete_test():
     Mark.query.filter_by(test_id=test_id).delete()
     db.session.delete(test)
     db.session.commit()
+    return redirect(f"/admin/subject/{test.subject_id}")
 
+@admin_routes.route('/upload_evaluated', methods=['POST'])
+def upload_evaluated_individual():
+    test_id = request.form.get('test_id')
+    email = request.form.get('user_email')
+    pdf = request.files.get('evaluated_pdf')
+
+    if not email or not test_id or not pdf:
+        return 'Missing data', 400
+
+    os.makedirs('uploads/evaluated', exist_ok=True)
+    filename = secure_filename(f"{test_id}_{email}_evaluated.pdf")
+    filepath = os.path.join('uploads/evaluated', filename)
+    pdf.save(filepath)
+
+    record = Evaluated.query.filter_by(user_email=email, test_id=test_id).first()
+    if record:
+        record.file_name = filename
+        record.submitted_at = datetime.utcnow()
+    else:
+        record = Evaluated(user_email=email, test_id=test_id, file_name=filename)
+        db.session.add(record)
+
+    db.session.commit()
+    test = Test.query.filter_by(id=test_id).first()
     return redirect(f"/admin/subject/{test.subject_id}")

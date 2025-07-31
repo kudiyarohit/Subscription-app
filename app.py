@@ -22,8 +22,13 @@ app.config["JWT_HEADER_TYPE"] = "Bearer"
 jwt = JWTManager(app)
 
 # ------------------ DB Config ------------------ #
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
-app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+from urllib.parse import quote_plus
+
+app.config["SQLALCHEMY_DATABASE_URI"] = (
+    f"mysql+pymysql://{os.getenv('DB_USER')}:{quote_plus(os.getenv('DB_PASS'))}"
+    f"@{os.getenv('DB_HOST')}/{os.getenv('DB_NAME')}"
+)
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
 
 from db import db
 db.init_app(app)
@@ -73,13 +78,17 @@ def serve_uploads(filename):
 def serve_answer_pdf(filename):
     return send_from_directory('uploads/answers', filename)
 
+@app.route('/files/evaluated/<path:filename>')
+def get_evaluated_file(filename):
+    return send_from_directory('uploads/evaluated', filename)
 # ------------------ Ensure Folder Structure ------------------ #
 for subfolder in [
     'uploads',
     'uploads/questions',
     'uploads/answers',
     'uploads/keys',
-    'uploads/tests'  # ✅ new folder for individual test PDFs
+    'uploads/tests',
+    'uploads/evaluated'  
 ]:
     os.makedirs(subfolder, exist_ok=True)
 

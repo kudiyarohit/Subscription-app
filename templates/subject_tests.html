@@ -45,28 +45,36 @@
 {% endif %}
 
       <!-- Answer Submissions -->
-      {% if test.answers %}
-        <h6>Submitted Answers:</h6>
-        <ul>
-          {% for ans in test.answers %}
-            <li>
-              <strong>{{ ans.user.username or ans.user_email }}</strong> ({{ ans.user_email }}) —
-              <a href="/uploads/answers/{{ ans.file_name }}" target="_blank">Answer PDF</a>
-              | Marks: {% set m = (test.marks | selectattr('user_email', 'equalto', ans.user_email) | list) %}{{ m[0].score if m else 'N/A' }}
-            </li>
-          {% endfor %}
-        </ul>
-      {% else %}
-        <p class="text-muted">No submissions.</p>
-      {% endif %}
+{% if test.answers %}
+  <h6>Submitted Answers:</h6>
+  <ul>
+    {% for ans in test.answers %}
+      <li class="mb-2">
+        <strong>{{ ans.user.username or ans.user_email }}</strong> 
+        <a href="/uploads/answers/{{ ans.file_name }}" target="_blank">Answer PDF</a>
+        | Marks: {% set m = (test.marks | selectattr('user_email', 'equalto', ans.user_email) | list) %}{{ m[0].score if m else 'N/A' }}
 
-      <!-- Update Marks -->
-      <form method="POST" action="/admin/update_marks" class="row mt-2">
-        <input type="hidden" name="test_id" value="{{ test.id }}">
-        <div class="col-md-5"><input class="form-control" name="email" placeholder="Student Email" required></div>
-        <div class="col-md-5"><input class="form-control" name="marks" placeholder="Marks" required></div>
-        <div class="col-md-2"><button class="btn btn-dark w-100">Submit</button></div>
-      </form>
+        <!-- Upload Evaluated PDF -->
+        <form method="POST" action="/admin/upload_evaluated" enctype="multipart/form-data" class="d-inline ms-2 me-2">
+          <input type="hidden" name="test_id" value="{{ test.id }}">
+          <input type="hidden" name="user_email" value="{{ ans.user_email }}">
+          <input type="file" name="evaluated_pdf" accept="application/pdf" class="form-control form-control-sm d-inline w-auto" required>
+          <button type="submit" class="btn btn-sm btn-outline-success">Upload</button>
+        </form>
+
+        <!-- Marks form inline -->
+        <form method="POST" action="/admin/update_marks" class="d-inline">
+          <input type="hidden" name="test_id" value="{{ test.id }}">
+          <input type="hidden" name="email" value="{{ ans.user_email }}">
+          <input type="number" name="marks" placeholder="Marks" class="form-control form-control-sm d-inline w-auto" style="width: 70px;" required>
+          <button type="submit" class="btn btn-sm btn-outline-success">Submit</button>
+        </form>
+      </li>
+    {% endfor %}
+  </ul>
+{% else %}
+  <p class="text-muted">No submissions.</p>
+{% endif %}
 
       <!-- Delete Test -->
       <form method="POST" action="/admin/delete_test" class="mt-2" onsubmit="return confirm('Are you sure?')">
